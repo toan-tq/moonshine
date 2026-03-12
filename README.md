@@ -5,6 +5,7 @@
 **Voice Interfaces for Everyone**
 
 - [Quickstart](#quickstart)
+- [TCP Streaming Server](#tcp-streaming-server)
 - [When should you choose Moonshine over Whisper?](#when-should-you-choose-moonshine-over-whisper)
 - [Using the Library](#using-the-library)
 - [Models](#models)
@@ -93,6 +94,68 @@ You'll need a USB microphone plugged in to get audio input, but the Python pip p
 ```
 
 I've recorded [a screencast on YouTube](https://www.youtube.com/watch?v=NNcqx1wFxl0) to help you get started, and you can also download [github.com/moonshine-ai/moonshine/releases/latest/download/raspberry-pi-examples.tar.gz](https://github.com/moonshine-ai/moonshine/releases/latest/download/raspberry-pi-examples.tar.gz) for some fun, Pi-specific examples. [The README](examples/raspberry-pi/my-dalek/README.md) has information about using a virtual environment for the Python install if you don't want to use `--break-system-packages`.
+
+### TCP Streaming Server
+
+A lightweight TCP server for streaming real-time speech-to-text from remote clients. This is useful for offloading transcription to a more powerful machine (e.g. a Jetson or GPU server) while keeping the audio capture on a separate device.
+
+#### Prerequisites
+
+**ONNX Runtime libraries (aarch64):** The ORT shared libraries are not included in the repo due to their size. Download the ONNX Runtime release for your platform and copy the `.so` files into `core/third-party/onnxruntime/lib/linux/aarch64/`:
+
+```bash
+# Download from https://github.com/microsoft/onnxruntime/releases
+# For Jetson / aarch64 with CUDA support, you need:
+#   libonnxruntime.so, libonnxruntime.so.1
+#   libonnxruntime_providers_shared.so
+#   libonnxruntime_providers_cuda.so      (optional, for GPU acceleration)
+#   libonnxruntime_providers_tensorrt.so  (optional, for TensorRT acceleration)
+```
+
+**Model assets:** The `.ort` model files are also not included. Download them using the Python package:
+
+```bash
+pip install moonshine-voice
+python -c "from moonshine_voice import download_model; download_model('tiny-en')"
+```
+
+Or manually copy `encoder_model.ort` and `decoder_model_merged.ort` into `test-assets/tiny-en/` if running tests locally.
+
+#### Build
+
+```bash
+cd core && mkdir -p build && cd build
+cmake .. && cmake --build .
+cd ../..
+g++ -std=c++20 -O2 -pthread -Icore/ -Icore/moonshine-utils \
+    -Lcore/build -Lcore/third-party/onnxruntime/lib/linux/aarch64 \
+    server.cpp -lmoonshine -o moonshine-server
+```
+
+#### Run the server
+
+```bash
+export LD_LIBRARY_PATH=core/build:core/third-party/onnxruntime/lib/linux/aarch64
+./moonshine-server [model_path] [port]
+```
+
+- `model_path` defaults to `~/.cache/moonshine_voice/download.moonshine.ai/model/tiny-streaming-en/quantized`
+- `port` defaults to `9900`
+
+The server listens on `0.0.0.0` so remote clients can connect.
+
+#### Test with a WAV file
+
+```bash
+python test-client.py <file.wav> [host] [port]
+```
+
+The client sends 16-bit mono WAV audio as float32 PCM over TCP in 100ms chunks, simulating real-time streaming. The server responds with newline-delimited JSON:
+
+```json
+{"text":"hello world","partial":true}
+{"text":"hello world","final":true}
+```
 
 ## When should you choose Moonshine over Whisper?
 

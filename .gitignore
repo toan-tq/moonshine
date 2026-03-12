@@ -42,3 +42,9 @@ Package.resolved
 /moonshine-eval-results.xlsx
 /moonshine-eval-detailed-results.xlsx
 /datasets/
+# ORT libraries for aarch64 (download separately)
+core/third-party/onnxruntime/lib/linux/aarch64/*.so
+core/third-party/onnxruntime/lib/linux/aarch64/*.so.*
+core/third-party/onnxruntime/lib/linux/aarch64/*.bak
+# Model assets (download via Python package)
+test-assets/tiny-en/*.ort
